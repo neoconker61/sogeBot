@@ -1,0 +1,288 @@
+<html lang="en"><head>
+    <title>EventList</title>
+    <meta charset="utf-8">
+    <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#f4f5f6">
+    <meta name="apple-mobile-web-app-status-bar-style" content="#f4f5f6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link href="https://use.fontawesome.com/releases/v5.0.6/css/all.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Cabin+Condensed" rel="stylesheet">
+
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script type="text/javascript" src="/auth/token.js"></script>
+
+    <style>
+      html, body {
+        padding: 2px;
+        padding-top: 10px;
+        margin: auto;
+        color: white;
+        text-shadow: 0 0 20px black;
+        font-family: 'Cabin Condensed', 'sans';
+        font-size: 30px;
+      }
+
+      .alert {
+        width: 50%;
+        margin: auto;
+        padding-top: 10vh;
+      }
+
+      @keyframes fadeAnimation {
+        0%   { opacity:1; }
+        50%  { opacity:0; }
+        100%  { opacity:1; }
+      }
+
+      .cursor {
+        font-weight: bold;
+        color: lightcoral;
+        animation: fadeAnimation 1s infinite;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="alert" style="text-align: center;">
+      <div style="display: inline-block; border-bottom: 1px dotted lightcoral">
+        <strong id="text"></strong>
+      </div>
+      <span id="done" style="visibility: hidden" class="cursor">hotovo</span>
+      <br>
+      <div style="display: inline-block; text-align:center; margin: auto; text-transform: uppercase; font-size: 60px;">
+        <strong id="username"></strong><span class="cursor">|</span>
+        <br>
+        <div style="text-align:right; margin: auto; text-transform: uppercase; font-size: 40px; float: right; padding-right: 1vw; color: lightcoral">
+          <span id="amount"></span>
+        </div>
+      </div>
+      <br>
+      <br>
+      <div style="display: inline-block; text-align:center; margin: auto; font-size: 20px; clear:both;">
+        <span id="message"></span>
+      </div>
+
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <script>
+    $.urlParam = function(name){
+        var results = new RegExp('[\?&]' + name + '=([^&#]*)').exec(window.location.href);
+        if (results==null){
+          return null;
+        }
+        else{
+          return decodeURI(results[1]) || 0;
+        }
+    }
+
+    let decodeStatus = {
+      started: 0,
+      done: 0
+    }
+
+    let username = $.urlParam('username') || 'n/a'
+    let viewers = $.urlParam('viewers') || '0'
+    let amount = $.urlParam('amount') || '0'
+    let currency = $.urlParam('currency') || 'CZK'
+    let message = $.urlParam('message') || 'n/a'
+    let type = $.urlParam('type') || 'follow'
+    let locale = ''
+    switch (type) {
+      case 'follow':
+        $('#text').text('Nový FOLLOW - dešifrování')
+        break
+      case 'sub':
+        $('#text').text('Nový SUBSCRIBER - dešifrování')
+        break
+      case 'resub':
+        $('#text').text('Nový RESUB - dešifrování')
+        locale = 'Měsíců'
+        if (Number(amount) === 1) locale = 'Měsíc'
+        else if (Number(amount) > 1 && Number(amount) < 5) locale = "Měsíce"
+        $('#amount').text(`${amount} ${locale}`)
+        decode('amount', {
+          speed: 50,
+          wait: 3500,
+          durationLoading: 500,
+          duration: 5000
+        })
+        break
+      case 'tip':
+        $('#text').text(`Nový TIP - dešifrování`)
+        $('#amount').text(`${amount}${currency}`)
+        $('#message').text(message)
+        decode('amount', {
+          speed: 50,
+          wait: 3500,
+          durationLoading: 500,
+          duration: 5000
+        })
+        decode('message', {
+          speed: 50,
+          wait: 3500,
+          durationLoading: 1000,
+          duration: 5000
+        })
+        break
+      case 'cheer':
+        locale = 'Bitů'
+        if (Number(amount) === 1) locale = 'Bit'
+        else if (Number(amount) > 1 && Number(amount) < 5) locale = "Bity"
+        $('#text').text(`Nový CHEER - dešifrování`)
+        $('#amount').text(`${amount} ${locale}`)
+        $('#message').text(message)
+        decode('amount', {
+          speed: 50,
+          wait: 3500,
+          durationLoading: 500,
+          duration: 5000
+        })
+        decode('message', {
+          speed: 50,
+          wait: 3500,
+          durationLoading: 1000,
+          duration: 5000
+        })
+        break
+      case 'raid':
+        $('#text').text(`Nový RAID - dešifrování`)
+        locale = 'Diváků'
+        if (Number(viewers) === 1) locale = 'Divák'
+        else if (Number(viewers) > 1 && Number(viewers) < 5) locale = "Diváci"
+        $('#amount').text(`${viewers} ${locale}`)
+        decode('amount', {
+          speed: 50,
+          wait: 3500,
+          durationLoading: 500,
+          duration: 5000
+        })
+      case 'host':
+        $('#text').text(`Nový HOST - dešifrování`)
+        locale = 'Diváků'
+        if (Number(viewers) === 1) locale = 'Divák'
+        else if (Number(viewers) > 1 && Number(viewers) < 5) locale = "Diváci"
+        $('#amount').text(`${viewers} ${locale}`)
+        decode('amount', {
+          speed: 50,
+          wait: 3500,
+          durationLoading: 500,
+          duration: 5000
+        })
+        break
+    }
+
+    $('#username').text(username)
+
+    decode('text', {
+      speed: 50,
+      durationLoading: 1000,
+      duration: 2000
+    })
+
+    decode('username', {
+      speed: 50,
+      wait: 3500,
+      durationLoading: 500,
+      duration: 3000
+    })
+
+    setInterval(() => {
+      if (decodeStatus.started === decodeStatus.done && decodeStatus.started > 0) {
+        $('.cursor').css('visibility', 'hidden')
+        $('#done').css('visibility', 'visible')
+      }
+    }, 100)
+
+    function decode(el, opts) {
+      if (!opts.started) {
+        decodeStatus.started++
+        opts.started = true
+      }
+      const $el = document.getElementById(el)
+      if (!opts.original) opts.original = $el.textContent.trim()
+      $el.textContent = ''
+
+      if (opts.wait) {
+        return setTimeout(() => {
+          delete opts.wait
+          decode(el, opts)
+        }, opts.wait)
+      }
+      if (typeof opts === 'undefined') return console.error('Missing opts property')
+      if (typeof el === 'undefined') return console.error('Missing element property')
+
+      if (!opts.speed) opts.speed = 100                       // speed of char change in ms
+      if (!opts.duration) opts.duration = 10000               // final duration to encode
+      if (!opts.durationLoading) opts.durationLoading = 10000 // duration of string load
+      //if (!opts.chars) opts.chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+`~" // what chars can be in scrambled text
+      if (!opts.chars) opts.chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789" // what chars can be in scrambled text
+
+      if (typeof opts.decoded === 'undefined') opts.decoded = []
+      if (typeof opts.addedDecode === 'undefined') opts.addedDecode = 0
+      if (typeof opts.loaded === 'undefined') opts.loaded = 0
+
+      const howManyLoopsToDecode = opts.duration / opts.speed
+      const howManyLoopsToLoad = opts.durationLoading / opts.speed
+      let toDecode = (opts.original.length / howManyLoopsToDecode) + opts.addedDecode
+      opts.loaded = (opts.original.length / howManyLoopsToLoad) + opts.loaded
+
+      opts.addedDecode = toDecode - Math.floor(toDecode)
+
+      for (var i = 0; i < Math.floor(toDecode); i++) {
+        const randomCharPos = Math.floor(Math.random() * opts.original.length)
+        if (!opts.decoded.includes(randomCharPos)) opts.decoded.push(randomCharPos)
+        else {
+          let positions = {
+            up: randomCharPos + 1,
+            down: randomCharPos - 1
+          }
+
+          let found = false
+          while (!found) {
+            if (positions.down < 0) positions.down = 0
+            if (positions.up > opts.original.length) positions.up = opts.original.length
+            if (positions.down === 0 && positions.up === opts.original.length) return
+
+            if (!opts.decoded.includes(positions.up)) {
+              opts.decoded.push(positions.up)
+              found = true
+              break
+            }
+            if (!opts.decoded.includes(positions.down)) {
+              opts.decoded.push(positions.down)
+              found = true
+              break
+            }
+            positions.up++
+            positions.down++
+          }
+        }
+      }
+
+      // scramble text
+      let text = ''
+      for (var i = 0; i < opts.original.length && i < opts.loaded; i++) {
+        if (!opts.decoded.includes(i)) text += opts.chars.charAt(Math.floor(Math.random() * opts.chars.length));
+        else text += opts.original.charAt(i)
+        $el.textContent = text
+      }
+
+      if (opts.original === $el.textContent) {
+        decodeStatus.done++
+        return console.log('DONE!')
+      }
+
+      setTimeout(() => {
+        decode(el, opts)
+      }, opts.speed)
+    }
+
+    </script>
+    </body>
+    </html>
+
+
+
