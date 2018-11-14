@@ -87,7 +87,7 @@
     let viewers = $.urlParam('viewers') || '0'
     let amount = $.urlParam('amount') || '0'
     let currency = $.urlParam('currency') || 'CZK'
-    let message = $.urlParam('message') || 'n/a'
+    let message = decodeURI($.urlParam('message') || ' ')
     let type = $.urlParam('type') || 'follow'
     let locale = ''
     switch (type) {
@@ -272,6 +272,7 @@
       }
 
       if (opts.original === $el.textContent) {
+        console.log({ original: opts.original, current: $el.textContent })
         decodeStatus.done++
         return console.log('DONE!')
       }
