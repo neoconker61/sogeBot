@@ -52,9 +52,13 @@
       <span id="done" style="visibility: hidden" class="cursor">hotovo</span>
       <br>
       <div style="display: inline-block; text-align:center; margin: auto; text-transform: uppercase; font-size: 60px;">
-        <strong id="username"></strong><span class="cursor">|</span>
-        <br>
-        <div style="text-align:right; margin: auto; text-transform: uppercase; font-size: 40px; float: right; padding-right: 1vw; color: rgb(255, 0, 98)">
+        <div>
+          <strong id="username"></strong><span class="cursor">|</span>
+        </div>
+        <div style="text-align:right; margin: auto; text-transform: uppercase; font-size: 20px; float: right; padding-right: 1vw; color: rgb(255, 0, 98);">
+          <span id="subamount"></span>
+        </div>
+        <div style="clear:both; text-align:right; margin: auto; text-transform: uppercase; font-size: 40px; float: right; padding-right: 1vw; color: rgb(255, 0, 98);">
           <span id="amount"></span>
         </div>
       </div>
@@ -69,13 +73,13 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
   <script>
     $.urlParam = function(name){
-        var results = new RegExp('[\?&]' + name + '=([^&#]*)').exec(window.location.href);
-        if (results==null){
-          return null;
-        }
-        else{
-          return decodeURI(results[1]) || 0;
-        }
+      var results = new RegExp('[\?&]' + name + '=([^&#]*)').exec(window.location.href);
+      if (results==null){
+        return null;
+      }
+      else{
+        return decodeURI(results[1]) || 0;
+      }
     }
 
     let decodeStatus = {
@@ -99,10 +103,30 @@
         break
       case 'resub':
         $('#text').text('Nový RESUB - dešifrování')
-        locale = 'Měsíců'
-        if (Number(amount) === 1) locale = 'Měsíc'
-        else if (Number(amount) > 1 && Number(amount) < 5) locale = "Měsíce"
-        $('#amount').text(`${amount} ${locale}`)
+        const subStreak = $.urlParam('subStreak') || '0'
+        const subStreakName = $.urlParam('subStreakName') || ''
+        const subStreakShareEnabled = $.urlParam('subStreakShareEnabled') === 'true'
+        const subCumulativeMonths = $.urlParam('subCumulativeMonths') || '0'
+        const subCumulativeMonthsName = $.urlParam('subCumulativeMonthsName') || ''
+        console.log({
+          subStreak,
+          subStreakName,
+          subStreakShareEnabled,
+          subCumulativeMonths,
+          subCumulativeMonthsName,
+        });
+        if (subStreakShareEnabled) {
+          $('#subamount').text(`streak ${subStreak} ${subStreakName}`)
+          decode('subamount', {
+            speed: 50,
+            wait: 3500,
+            durationLoading: 500,
+            duration: 5000
+          })
+        } else {
+          console.log($('#subamount').parent().remove())
+        }
+        $('#amount').text(`${subCumulativeMonths} ${subCumulativeMonthsName}`)
         decode('amount', {
           speed: 50,
           wait: 3500,
