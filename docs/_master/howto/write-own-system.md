@@ -29,7 +29,7 @@ class Yoursystem extends System {
   }
 }
 
-module.exports = new Yoursystem()
+export default new Yoursystem();
 ```
 
 ### Depends on different system

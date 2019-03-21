@@ -17,7 +17,10 @@ declare namespace NodeJS {
     log: any,
     currency: any,
     panel: any,
-    systems: any,
+    systems: {
+      keywords: import("../src/bot/systems/keywords").Keywords,
+      [x: string]: any,
+    },
     users: any,
     lib: any,
     workers: import("../src/bot/workers").Workers,

@@ -90,6 +90,13 @@ async function main () {
 
   global.lib.translate._load().then(function () {
     global.systems = require('auto-load')('./dest/systems/')
+    for (let [s, o] of Object.entries(global.systems)) {
+      if (typeof o.default !== 'undefined') {
+        global.systems[s] = o.default; // remap default to root object
+      }
+    }
+
+
     global.widgets = require('auto-load')('./dest/widgets/')
     global.overlays = require('auto-load')('./dest/overlays/')
     global.games = require('auto-load')('./dest/games/')

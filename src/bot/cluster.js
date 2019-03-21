@@ -39,6 +39,11 @@ function cluster () {
   global.lib.translate._load().then(function () {
     try {
       global.systems = require('auto-load')('./dest/systems/')
+      for (let [s, o] of Object.entries(global.systems)) {
+        if (typeof o.default !== 'undefined') {
+          global.systems[s] = o.default; // remap default to root object
+        }
+      }
       global.overlays = require('auto-load')('./dest/overlays/')
       global.games = require('auto-load')('./dest/games/')
       global.integrations = require('auto-load')('./dest/integrations/')
