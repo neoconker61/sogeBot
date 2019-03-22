@@ -1,6 +1,8 @@
-import { get, isEmpty, isNil } from 'lodash';
-import * as uuidv4 from 'uuid/v4';
+import { get, isEmpty, isNil, orderBy } from 'lodash';
+import {v4 as uuidv4} from 'uuid';
+import { isMainThread } from 'worker_threads';
 import * as XRegExp from 'xregexp';
+import { debug } from '../debug';
 import Expects from '../expects';
 import Message from '../message';
 import { permission } from '../permissions';
@@ -28,13 +30,16 @@ class Keywords extends System {
           { name: '!keyword toggle', permission: permission.CASTERS },
         ],
         parsers: [
-          { name: 'run' },
+          { name: 'run', fireAndForget: true },
         ],
       },
     };
     super(options);
 
     this.addMenu({ category: 'manage', name: 'keywords', id: 'keywords/list' });
+    if (isMainThread) {
+      global.db.engine.index(this.collection.data, [{ index: 'id', unique: true }, { index: 'keyword' }]);
+    }
   }
 
   public main(opts) {
@@ -50,8 +55,9 @@ class Keywords extends System {
    *
    * format: !keyword add -k [regexp] -r [response]
    * @param {CommandOptions} opts - options
+   * @return {Promise<Keyword | null>}
    */
-  public async add(opts: CommandOptions) {
+  public async add(opts: CommandOptions): Promise<Keyword | null> {
     try {
       const [keywordRegex, response] =
         new Expects(opts.parameters)
@@ -66,50 +72,106 @@ class Keywords extends System {
       };
       await global.db.engine.insert(this.collection.data, data);
       global.commons.sendMessage(global.commons.prepare('keywords.keyword-was-added', data), opts.sender);
+      return data;
     } catch (e) {
       global.commons.sendMessage(global.commons.prepare('keywords.keyword-parse-failed'), opts.sender);
+      return null;
     }
+  }
+
+  /**
+   * Edit keyword
+   *
+   * format: !keyword edit -k [uuid|regexp] -r [response]
+   * @param {CommandOptions} opts - options
+   * @return {Promise<Keyword | null>}
+   */
+  public async edit(opts: CommandOptions): Promise<Keyword | null> {
+    try {
+      const [keywordRegexOrUUID, response] =
+        new Expects(opts.parameters)
+          .argument({ name: 'k', optional: false, multi: true, delimiter: '' })
+          .argument({ name: 'r', optional: false, multi: true, delimiter: '' })
+          .toArray();
+
+      let keywords: Keyword[] = [];
+      if (global.commons.isUUID(keywordRegexOrUUID)) {
+        keywords = await global.db.engine.find(this.collection.data, { id: keywordRegexOrUUID });
+      } else {
+        keywords = await global.db.engine.find(this.collection.data, { keyword: keywordRegexOrUUID });
+      }
+
+      if (keywords.length === 0) {
+        global.commons.sendMessage(global.commons.prepare('keywords.keyword-was-not-found'), opts.sender);
+        return null;
+      } else if (keywords.length > 1) {
+        global.commons.sendMessage(global.commons.prepare('keywords.keyword-is-ambiguous'), opts.sender);
+        return null;
+      } else {
+        delete keywords[0]._id;
+        keywords[0].response = response;
+        await global.db.engine.update(this.collection.data, { id: keywords[0].id }, keywords[0]);
+        global.commons.sendMessage(global.commons.prepare('keywords.keyword-was-edited', keywords[0]), opts.sender);
+        return keywords[0];
+      }
+    } catch (e) {
+      global.commons.sendMessage(global.commons.prepare('keywords.keyword-parse-failed'), opts.sender);
+      return null;
+    }
+  }
+
+  /**
+   * Bot responds with list of keywords
+   *
+   * @param {CommandOptions} opts
+   * @returns {Promise<void>}
+   */
+  public async list(opts: CommandOptions): Promise<void> {
+    const keywords = orderBy(await global.db.engine.find(this.collection.data), 'keyword', 'asc');
+    const list = keywords.map((o) => {
+      return `${o.enabled ? '🗹' : '☐'} ${o.id} | ${o.keyword} | ${o.response}`;
+    });
+
+    let output;
+    if (keywords.length === 0) {
+      output = global.commons.prepare('keywords.list-is-empty');
+    } else {
+      output = global.commons.prepare('keywords.list-is-not-empty');
+    }
+    global.commons.sendMessage(output, opts.sender);
+
+    for (let i = 0; i < list.length; i++) {
+      setTimeout(() => {
+        global.commons.sendMessage(list[i], opts.sender);
+      }, 500 * i);
+    }
+  }
+
+  /**
+   * Parses message for keywords
+   *
+   * @param {ParserOptions} opts
+   * @return true
+   */
+  public async run(opts: ParserOptions) {
+    if (opts.message.trim().startsWith('!')) {
+      return true;
+    }
+
+    const keywords = (await global.db.engine.find(this.collection.data)).filter((o) => {
+      const isFoundInMessage = opts.message.search(new RegExp('\\b' + o.keyword + '\\b', 'gi')) >= 0;
+      const isEnabled = o.enabled;
+      debug('keywords.run', `\n\t<\t${opts.message}\n\t?\t${o.keyword}\n\t-\tisFoundInMessage: ${isFoundInMessage}, isEnabled: ${isEnabled}`);
+      return isFoundInMessage && isEnabled;
+    });
+
+    for (const k of keywords) {
+      const message = await (new Message(k.response).parse({ sender: opts.sender.username }));
+      global.commons.sendMessage(message, opts.sender);
+    }
+    return true;
   }
 /*
-  async edit(opts) {
-    const match = XRegExp.exec(opts.parameters, constants.KEYWORD_REGEXP)
-
-    if (isNil(match)) {
-      let message = await global.commons.prepare('keywords.keyword-parse-failed')
-      global.commons.sendMessage(message, opts.sender)
-      return false
-    }
-
-    let item = await global.db.engine.findOne(this.collection.data, { keyword: match.keyword })
-    if (isEmpty(item)) {
-      let message = await global.commons.prepare('keywords.keyword-was-not-found', { keyword: match.keyword })
-      global.commons.sendMessage(message, opts.sender)
-      return false
-    }
-
-    await global.db.engine.update(this.collection.data, { keyword: match.keyword }, { response: match.response })
-    let message = await global.commons.prepare('keywords.keyword-was-edited', { keyword: match.keyword, response: match.response })
-    global.commons.sendMessage(message, opts.sender)
-  }
-
-  async run(opts) {
-    let keywords = await global.db.engine.find(this.collection.data)
-    keywords = _.filter(keywords, function (o) {
-      return opts.message.search(new RegExp('^(?!\\!)(?:^|\\s).*(' + _.escapeRegExp(o.keyword) + ')(?=\\s|$|\\?|\\!|\\.|\\,)', 'gi')) >= 0
-    })
-    for (let keyword of keywords) {
-      if (!keyword.enabled) continue
-      let message = await new Message(keyword.response).parse({ sender: opts.sender.username })
-      global.commons.sendMessage(message, opts.sender)
-    }
-    return true
-  }
-
-  async list(opts) {
-    let keywords = await global.db.engine.find(this.collection.data)
-    var output = (keywords.length === 0 ? global.translate('keywords.list-is-empty') : global.translate('keywords.list-is-not-empty').replace(/\$list/g, _.map(_.orderBy(keywords, 'keyword'), 'keyword').join(', ')))
-    global.commons.sendMessage(output, opts.sender)
-  }
 
   async toggle(opts) {
     if (opts.parameters.trim().length === 0) {
@@ -153,3 +215,4 @@ class Keywords extends System {
 }
 
 export default new Keywords();
+export { Keywords };

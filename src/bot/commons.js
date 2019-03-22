@@ -16,6 +16,11 @@ import { debug } from './debug';
 function Commons () {
 }
 
+Commons.prototype.isUUID = function (s) {
+  const uuidRegex = /([0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12})/;
+  return s.search(uuidRegex) >= 0;
+}
+
 /*
  * Flatten object keys
  * { a: { b: 'c' }} => { 'a.b': 'c' }
